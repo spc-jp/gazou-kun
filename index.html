@@ -70,16 +70,41 @@
                     画像の設定
                 </h2>
 
-                <form id="generate-form" class="space-y-5">
+                <form id="generate-form" class="space-y-6">
                     
                     <!-- 描画内容（プロンプト） -->
-                    <div>
-                        <label for="prompt" class="block text-sm font-semibold text-slate-700 mb-2">
-                            何を描きますか？ <span class="text-red-500">*</span>
-                        </label>
-                        <textarea id="prompt" rows="3" required
-                            class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none shadow-sm"
-                            placeholder="例：ノートパソコンを開いてコーヒーを飲んでいるシロクマ。デスクの上には観葉植物がある。"></textarea>
+                    <div class="space-y-4">
+                        
+                        <!-- NEW: アイデアアシスト機能 -->
+                        <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                            <div class="flex items-center justify-between mb-2">
+                                <h3 class="text-sm font-bold text-indigo-800 flex items-center gap-1.5">
+                                    <i data-lucide="lightbulb" class="w-4 h-4"></i>
+                                    思いつかない時はAIにおまかせ
+                                </h3>
+                            </div>
+                            <p class="text-xs text-indigo-600 mb-3">記事のタイトルやアプリ名を入力すると、AIが「描く内容」を具体的に提案します。</p>
+                            <div class="flex flex-col gap-2">
+                                <div class="flex gap-2">
+                                    <input type="text" id="idea-input" class="flex-grow px-3 py-2.5 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white shadow-sm" placeholder="例：初心者向けAI活用ガイド">
+                                    <button type="button" id="auto-prompt-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-sm min-w-[105px]">
+                                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                                        <span id="auto-prompt-text">考えて！</span>
+                                    </button>
+                                </div>
+                                <p id="auto-prompt-error" class="text-xs text-red-500 hidden"></p>
+                            </div>
+                        </div>
+
+                        <!-- 手動入力エリア -->
+                        <div>
+                            <label for="prompt" class="block text-sm font-semibold text-slate-700 mb-2">
+                                何を描きますか？（上のボタンで自動入力もできます） <span class="text-red-500">*</span>
+                            </label>
+                            <textarea id="prompt" rows="3" required
+                                class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all resize-none shadow-sm"
+                                placeholder="例：ノートパソコンを開いてコーヒーを飲んでいるシロクマ。デスクの上には観葉植物がある。"></textarea>
+                        </div>
                     </div>
 
                     <!-- アスペクト比 -->
@@ -224,10 +249,92 @@
         const errorMessageEl = document.getElementById('error-message');
         const resultImage = document.getElementById('result-image');
         const retryBtn = document.getElementById('retry-btn');
+        const promptArea = document.getElementById('prompt');
+
+        // AIプロンプト提案用のDOM要素
+        const ideaInput = document.getElementById('idea-input');
+        const autoPromptBtn = document.getElementById('auto-prompt-btn');
+        const autoPromptText = document.getElementById('auto-prompt-text');
+        const autoPromptError = document.getElementById('auto-prompt-error');
 
         const colorPreset = document.getElementById('color-preset');
         const customColorContainer = document.getElementById('custom-color-container');
         const colorCustom = document.getElementById('color-custom');
+
+        // プロンプト自動生成機能 (テキスト生成AI呼び出し)
+        autoPromptBtn.addEventListener('click', async () => {
+            const idea = ideaInput.value.trim();
+            if (!idea) {
+                autoPromptError.textContent = 'タイトルやキャッチコピーを入力してください';
+                autoPromptError.classList.remove('hidden');
+                return;
+            }
+            
+            // UIをローディング状態に
+            autoPromptError.classList.add('hidden');
+            autoPromptBtn.disabled = true;
+            autoPromptBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            autoPromptText.textContent = '考え中...';
+
+            try {
+                // テキスト生成API (Gemini 2.5 Flash) を使用
+                const textEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+                
+                // AIへの指示: 短く具体的な情景描写を作成させる
+                const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
+                
+                const payload = {
+                    contents: [{ parts: [{ text: `タイトル・キャッチコピー: ${idea}` }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+
+                // エクスポネンシャルバックオフ（再試行ロジック）
+                let retries = 3;
+                let delay = 1000;
+                let generatedText = null;
+
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const response = await fetch(textEndpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                        
+                        const data = await response.json();
+                        generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if(generatedText) break;
+                    } catch(e) {
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2;
+                    }
+                }
+
+                if (generatedText) {
+                    // 成功時：テキストエリアに値をセットしてハイライト
+                    promptArea.value = generatedText.trim();
+                    promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
+                    setTimeout(() => {
+                        promptArea.classList.remove('bg-indigo-50', 'border-indigo-500');
+                    }, 1000);
+                } else {
+                    throw new Error("Empty response");
+                }
+
+            } catch(error) {
+                console.error("Text generation error:", error);
+                autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
+                autoPromptError.classList.remove('hidden');
+            } finally {
+                // UIを元に戻す
+                autoPromptBtn.disabled = false;
+                autoPromptBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                autoPromptText.textContent = '考えて！';
+            }
+        });
 
         // 手入力フィールドの表示切り替え
         colorPreset.addEventListener('change', (e) => {
@@ -255,7 +362,7 @@
             if (currentImageUrl) {
                 const a = document.createElement('a');
                 a.href = currentImageUrl;
-                a.download = `thumbnail-${new Date().getTime()}.jpg`;
+                a.download = `thumbnail-${new Date().getTime()}.png`;
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
@@ -264,7 +371,7 @@
 
         async function generate() {
             // 入力値の取得
-            const subject = document.getElementById('prompt').value;
+            const subject = promptArea.value;
             const ratio = document.getElementById('ratio').value;
             const style = document.getElementById('style').value;
             

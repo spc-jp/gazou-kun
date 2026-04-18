@@ -240,9 +240,20 @@
     <script>
         lucide.createIcons();
 
-        // --- API設定 ---
-        const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev"; 
-        const apiKey = ""; 
+        // --- API & 環境設定 ---
+        // GitHub Pages上で動いているかを判定
+        // ※Canvasプレビュー環境ではWorkerを使用するとCORSエラー（Failed to fetch）になるため、
+        // GitHub Pages上でのみWorkerを通るように自動切り替えを行います。
+        const isGitHubPages = window.location.hostname.includes('github.io');
+
+        const WORKER_URL = isGitHubPages ? "https://gazou-kun.yymmatsu.workers.dev" : ""; 
+        const apiKey = ""; // Canvasプレビュー環境では自動的にキーが注入されます
+
+        // 使用するAIモデルの切り替え
+        // GitHub Pages(本番)では安定版モデルを、Canvas(プレビュー)ではCanvas専用のプレビューモデルを使用します。
+        // これにより、Canvas環境での「404エラー」を回避します。
+        const textModel = isGitHubPages ? "gemini-1.5-flash" : "gemini-2.5-flash-preview-09-2025";
+        const imageModel = isGitHubPages ? "imagen-3.0-generate-001" : "imagen-4.0-generate-001";
 
         // DOM要素
         const form = document.getElementById('generate-form');
@@ -282,10 +293,10 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                // モデル名を gemini-1.5-flash-latest に修正
+                // 自動判定されたモデルとURLを使用
                 const textEndpoint = WORKER_URL 
-                    ? `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`
-                    : `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+                    ? `${WORKER_URL}/v1beta/models/${textModel}:generateContent`
+                    : `https://generativelanguage.googleapis.com/v1beta/models/${textModel}:generateContent?key=${apiKey}`;
                 
                 // AIへの指示: 短く具体的な情景描写を作成させる
                 const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
@@ -400,10 +411,10 @@
             promptText += `\n注意: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。`;
 
             try {
-                // モデル名を imagen-3.0-generate-001 のまま維持
+                // 自動判定されたモデルとURLを使用
                 const endpoint = WORKER_URL
-                    ? `${WORKER_URL}/v1beta/models/imagen-3.0-generate-001:predict`
-                    : `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${apiKey}`;
+                    ? `${WORKER_URL}/v1beta/models/${imageModel}:predict`
+                    : `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:predict?key=${apiKey}`;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {

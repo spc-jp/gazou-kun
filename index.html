@@ -199,6 +199,28 @@
                         </div>
                     </div>
 
+                    <!-- 💡 もっといい画像を作るコツ (アコーディオン) -->
+                    <div class="border border-blue-100 bg-blue-50/50 rounded-xl overflow-hidden transition-all">
+                        <button type="button" onclick="document.getElementById('tips-content').classList.toggle('hidden'); document.getElementById('tips-icon').classList.toggle('rotate-180');" class="w-full px-4 py-3 flex items-center justify-between text-sm font-bold text-blue-800 hover:bg-blue-50 transition-colors focus:outline-none">
+                            <span class="flex items-center gap-2"><i data-lucide="lightbulb" class="w-4 h-4 text-yellow-500 fill-yellow-500/20"></i> プロンプトのコツを見る</span>
+                            <i data-lucide="chevron-down" id="tips-icon" class="w-4 h-4 text-blue-600 transition-transform duration-200"></i>
+                        </button>
+                        <div id="tips-content" class="hidden px-4 pb-4 pt-1 text-xs text-slate-600 space-y-3 border-t border-blue-100/50">
+                            <div>
+                                <strong class="text-blue-900 block mb-0.5">1. 「余白」を指示する</strong>
+                                <p>後から文字を重ねるなら、<span class="text-indigo-600 font-medium text-xs bg-indigo-50 px-1 rounded">「左側に文字用の広い余白を空けて」</span>と付け足すと使いやすくなります。</p>
+                            </div>
+                            <div>
+                                <strong class="text-blue-900 block mb-0.5">2. 具体的な「スパイス」を足す</strong>
+                                <p>AIの文章に、<span class="text-indigo-600 font-medium text-xs bg-indigo-50 px-1 rounded">「湯気の立つコーヒー」「差し込む夕日」</span>など、光や小物を指定すると表現力が上がります。</p>
+                            </div>
+                            <div>
+                                <strong class="text-blue-900 block mb-0.5">3. あえて「抽象的」にしてみる</strong>
+                                <p>具体的なものを描かず、<span class="text-indigo-600 font-medium text-xs bg-indigo-50 px-1 rounded">「波紋が広がる抽象的な背景」</span>のように指定するのも、プロっぽく仕上げる鉄板です。</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- アクションボタン -->
                     <button type="submit" id="generate-btn"
                         class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 group">
@@ -296,16 +318,13 @@
         lucide.createIcons();
 
         // --- API & 環境設定 ---
-        // プレビュー環境（Canvas）で動いているかを自動判別します
-        const isCanvas = window.location.hostname.includes('usercontent.goog');
+        // プレビュー環境（Canvas）で動いているかを自動判別します。
+        // blob:URLの場合、window.location.hostname が空になるブラウザがあるため、href（URL全体）で確実に判定します。
+        const isCanvas = window.location.href.includes('usercontent.goog') || window.location.protocol === 'blob:';
         
-        // GitHub Pagesなどの本番環境でのみWorkerを使用し、Canvas環境ではWorkerを使わないようにします。
+        // GitHub Pagesなどの本番環境でのみWorkerを使用します
         const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev"; 
-        const apiKey = ""; // Canvas環境ではシステムが自動的に入力します
-        
-        // Canvas環境ではプレビュー専用の安定モデルを、本番環境では標準モデルを自動で切り替えます
-        const textModel = isCanvas ? "gemini-2.5-flash-preview-09-2025" : "gemini-1.5-flash";
-        const imageModel = isCanvas ? "imagen-4.0-generate-001" : "imagen-3.0-generate-001";
+        const apiKey = ""; // Canvas環境ではシステムが自動的にキーを入力します
 
         // DOM要素
         const form = document.getElementById('generate-form');
@@ -345,10 +364,10 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                // 環境に応じて通信先を自動切り替え（CanvasのCORSエラーと404を回避）
+                // 環境に応じて通信先を完全に切り替えます（CanvasエラーとCORSを回避）
                 const textEndpoint = isCanvas 
-                    ? `https://generativelanguage.googleapis.com/v1beta/models/${textModel}:generateContent?key=${apiKey}`
-                    : `${WORKER_URL}/v1beta/models/${textModel}:generateContent`;
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
+                    : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
                 
                 // AIへの指示
                 const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
@@ -465,8 +484,8 @@
             try {
                 // 環境に応じて通信先を自動切り替え
                 const endpoint = isCanvas
-                    ? `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:predict?key=${apiKey}`
-                    : `${WORKER_URL}/v1beta/models/${imageModel}:predict`;
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`
+                    : `${WORKER_URL}/v1beta/models/imagen-3.0-generate-001:predict`;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {

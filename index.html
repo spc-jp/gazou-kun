@@ -39,6 +39,38 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* 楽しいローディングアニメーション用 */
+        .magic-wand {
+            animation: wave 1.5s infinite ease-in-out;
+            transform-origin: bottom left;
+        }
+        @keyframes wave {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(45deg) scale(1.1); }
+            100% { transform: rotate(0deg); }
+        }
+        .sparkle {
+            position: absolute;
+            animation: twinkle 2s infinite ease-in-out;
+        }
+        .sparkle:nth-child(1) { top: 10%; left: 20%; animation-delay: 0s; }
+        .sparkle:nth-child(2) { top: 20%; right: 20%; animation-delay: 0.5s; }
+        .sparkle:nth-child(3) { bottom: 20%; left: 30%; animation-delay: 1s; }
+        .sparkle:nth-child(4) { bottom: 10%; right: 30%; animation-delay: 1.5s; }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+            50% { opacity: 1; transform: scale(1.2) rotate(180deg); }
+        }
+        .animate-progress-bar {
+            animation: indeterminate 2s infinite linear;
+            transform-origin: 0% 50%;
+        }
+        @keyframes indeterminate {
+            0% { transform: translateX(-100%) scaleX(0.2); }
+            50% { transform: translateX(0%) scaleX(0.5); }
+            100% { transform: translateX(100%) scaleX(0.2); }
+        }
     </style>
 </head>
 <body class="text-slate-800 antialiased min-h-screen flex flex-col">
@@ -206,10 +238,33 @@
                     </div>
 
                     <!-- ローディング状態 -->
-                    <div id="loading-state" class="hidden absolute inset-0 bg-white/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center">
-                        <div class="loader mb-4"></div>
-                        <p class="text-blue-600 font-bold animate-pulse">AIがデザインを生成中...</p>
-                        <p class="text-sm text-slate-500 mt-2">これには十数秒かかる場合があります</p>
+                    <div id="loading-state" class="hidden absolute inset-0 bg-white/90 backdrop-blur-md z-20 flex flex-col items-center justify-center overflow-hidden">
+                        <!-- キラキラエフェクト -->
+                        <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+                            <div class="relative w-64 h-64">
+                                <i data-lucide="sparkles" class="sparkle text-yellow-400 w-8 h-8"></i>
+                                <i data-lucide="star" class="sparkle text-blue-400 w-6 h-6"></i>
+                                <i data-lucide="sparkle" class="sparkle text-pink-400 w-10 h-10"></i>
+                                <i data-lucide="star" class="sparkle text-purple-400 w-5 h-5"></i>
+                            </div>
+                        </div>
+                        
+                        <!-- メインのアニメーションアイコン -->
+                        <div class="relative mb-6 flex items-center justify-center w-28 h-28 bg-gradient-to-tr from-blue-50 to-indigo-50 rounded-full shadow-inner border border-blue-100">
+                            <i data-lucide="palette" class="w-12 h-12 text-blue-500 animate-bounce"></i>
+                            <i data-lucide="wand-2" class="w-10 h-10 text-indigo-500 absolute top-4 right-4 magic-wand"></i>
+                        </div>
+                        
+                        <!-- テキスト -->
+                        <p class="text-xl text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 font-bold animate-pulse mb-2">
+                            魔法でデザインを描いています...✨
+                        </p>
+                        <p class="text-sm text-slate-500 font-medium">最高の1枚に仕上げるため、10〜20秒ほどお待ちください</p>
+                        
+                        <!-- カラフルなプログレスバー -->
+                        <div class="w-64 h-1.5 bg-slate-100 rounded-full mt-6 overflow-hidden relative">
+                            <div class="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-500 rounded-full animate-progress-bar"></div>
+                        </div>
                     </div>
 
                     <!-- エラー状態 -->
@@ -241,16 +296,16 @@
         lucide.createIcons();
 
         // --- API & 環境設定 ---
-        // GitHub Pages上で動いているかを判定
-        // ※Canvasプレビュー環境ではWorkerを使用するとCORSエラー（Failed to fetch）になるため、
-        // GitHub Pages上でのみWorkerを通るように自動切り替えを行います。
-        const isGitHubPages = window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev');
-
-        // Cloudflare Worker URL（GitHub Pages / Cloudflare Pages 本番環境のみ使用）
-        const WORKER_URL = (isGitHubPages) ? "https://gazou-kun.yymmatsu.workers.dev" : "";
-
-        // 画像生成モデル（Google Imagen）
-        const imageModel = "imagen-3.0-generate-001";
+        // プレビュー環境（Canvas）で動いているかを自動判別します
+        const isCanvas = window.location.hostname.includes('usercontent.goog');
+        
+        // GitHub Pagesなどの本番環境でのみWorkerを使用し、Canvas環境ではWorkerを使わないようにします。
+        const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev"; 
+        const apiKey = ""; // Canvas環境ではシステムが自動的に入力します
+        
+        // Canvas環境ではプレビュー専用の安定モデルを、本番環境では標準モデルを自動で切り替えます
+        const textModel = isCanvas ? "gemini-2.5-flash-preview-09-2025" : "gemini-1.5-flash";
+        const imageModel = isCanvas ? "imagen-4.0-generate-001" : "imagen-3.0-generate-001";
 
         // DOM要素
         const form = document.getElementById('generate-form');
@@ -290,22 +345,17 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                // Claude API（Anthropic）でプロンプト提案
-                // 本番(GitHub Pages/Cloudflare Pages): Workerの /api/suggest エンドポイントを使用
-                // プレビュー環境: WORKER_URLが空のためエラーを表示
-                if (!WORKER_URL) {
-                    throw new Error("preview_env");
-                }
-
-                const textEndpoint = `${WORKER_URL}/api/suggest`;
-
+                // 環境に応じて通信先を自動切り替え（CanvasのCORSエラーと404を回避）
+                const textEndpoint = isCanvas 
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/${textModel}:generateContent?key=${apiKey}`
+                    : `${WORKER_URL}/v1beta/models/${textModel}:generateContent`;
+                
+                // AIへの指示
+                const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
+                
                 const payload = {
-                    model: "claude-haiku-4-5-20251001",
-                    max_tokens: 200,
-                    messages: [{
-                        role: "user",
-                        content: `以下のタイトル・キャッチコピーから、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。\n出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。\n\nタイトル・キャッチコピー: ${idea}`
-                    }]
+                    contents: [{ parts: [{ text: `タイトル・キャッチコピー: ${idea}` }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
                 };
 
                 let retries = 3;
@@ -323,8 +373,7 @@
                         if (!response.ok) throw new Error(`API Error: ${response.status}`);
                         
                         const data = await response.json();
-                        // Claude APIのレスポンス形式: data.content[0].text
-                        generatedText = data.content?.[0]?.text;
+                        generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
                         if(generatedText) break;
                     } catch(e) {
                         if (i === retries - 1) throw e;
@@ -345,11 +394,7 @@
 
             } catch(error) {
                 console.error("Text generation error:", error);
-                if (error.message === "preview_env") {
-                    autoPromptError.textContent = 'この機能はGitHub Pages / Cloudflare Pages上でご利用ください。';
-                } else {
-                    autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
-                }
+                autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
                 autoPromptError.classList.remove('hidden');
             } finally {
                 autoPromptBtn.disabled = false;
@@ -418,10 +463,10 @@
             promptText += `\n注意: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。`;
 
             try {
-                // 自動判定されたモデルとURLを使用
-                const endpoint = WORKER_URL
-                    ? `${WORKER_URL}/v1beta/models/${imageModel}:predict`
-                    : `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:predict?key=${apiKey}`;
+                // 環境に応じて通信先を自動切り替え
+                const endpoint = isCanvas
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:predict?key=${apiKey}`
+                    : `${WORKER_URL}/v1beta/models/${imageModel}:predict`;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {

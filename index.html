@@ -336,10 +336,7 @@
         lucide.createIcons();
 
         // --- API & 環境設定 ---
-        // 本番環境（GitHub Pages / Cloudflare Pages）かどうかを判定します
         const isProduction = window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev');
-
-        // Cloudflare Worker URL（本番環境で使用）
         const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev";
 
         // DOM要素
@@ -380,50 +377,29 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                // 本番環境以外（ローカル・プレビュー）ではWorkerに届かないため案内を表示
                 if (!isProduction) {
                     throw new Error("NOT_PRODUCTION");
                 }
-
-                // Worker経由でClaude APIにアクセス（APIキーはWorker側で管理）
-                const textEndpoint = `${WORKER_URL}/api/suggest`;
 
                 const payload = {
                     model: "claude-haiku-4-5-20251001",
                     max_tokens: 300,
                     messages: [{
                         role: "user",
-                        content: `以下のタイトル・キャッチコピーから、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。\n出力はプロンプトの文章（100文字以内）のみとし、挨拶・説明・記号は一切含めないでください。\n\nタイトル・キャッチコピー: ${idea}`
+                        content: `以下のタイトル・キャッチコピーから、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶・説明・記号は一切含めないでください。\n\nタイトル・キャッチコピー: ${idea}`
                     }]
                 };
 
-                let retries = 3;
-                let delay = 1000;
-                let generatedText = null;
+                const response = await fetch(`${WORKER_URL}/api/suggest`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
 
-                for (let i = 0; i < retries; i++) {
-                    try {
-                        const response = await fetch(textEndpoint, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
+                if (!response.ok) throw new Error(`API Error: ${response.status}`);
 
-                        if (!response.ok) {
-                            const errData = await response.json().catch(() => ({}));
-                            throw new Error(`API Error: ${response.status} ${errData.error || ''}`);
-                        }
-
-                        const data = await response.json();
-                        // Claude APIのレスポンス形式: data.content[0].text
-                        generatedText = data.content?.[0]?.text?.trim();
-                        if (generatedText) break;
-                    } catch(e) {
-                        if (i === retries - 1) throw e;
-                        await new Promise(r => setTimeout(r, delay));
-                        delay *= 2;
-                    }
-                }
+                const data = await response.json();
+                const generatedText = data.content?.[0]?.text?.trim();
 
                 if (generatedText) {
                     promptArea.value = generatedText;
@@ -439,8 +415,6 @@
                 console.error("Text generation error:", error);
                 if (error.message === "NOT_PRODUCTION") {
                     autoPromptError.textContent = 'この機能はGitHub Pages（本番環境）でお試しください。';
-                } else if (error.message === "EMPTY_RESPONSE") {
-                    autoPromptError.textContent = 'AIから返答がありませんでした。もう一度お試しください。';
                 } else {
                     autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
                 }
@@ -512,8 +486,8 @@
             promptText += `\n注意: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。`;
 
             try {
-                // 本番環境: Worker経由でGoogle Imagen APIにアクセス
-                const endpoint = `${WORKER_URL}/v1beta/models/imagen-3.0-generate-001:predict`;
+                // Worker経由でGoogle Imagen APIにアクセス（シンプルなパス）
+                const endpoint = `${WORKER_URL}/api/image`;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {

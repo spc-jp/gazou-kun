@@ -337,7 +337,8 @@
 
         // --- API & 環境設定 ---
         const isProduction = window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev');
-        const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev";
+        // Workerのエンドポイントは1本に統一（actionフィールドで振り分け）
+        const WORKER_ENDPOINT = "https://gazou-kun.yymmatsu.workers.dev";
 
         // DOM要素
         const form = document.getElementById('generate-form');
@@ -380,27 +381,18 @@
                 if (!isProduction) {
                     throw new Error("NOT_PRODUCTION");
                 }
-
-                const payload = {
-                    model: "claude-haiku-4-5-20251001",
-                    max_tokens: 300,
-                    messages: [{
-                        role: "user",
-                        content: `以下のタイトル・キャッチコピーから、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶・説明・記号は一切含めないでください。\n\nタイトル・キャッチコピー: ${idea}`
-                    }]
-                };
-
-                const response = await fetch(`${WORKER_URL}/api/suggest`, {
+                // actionフィールドでWorker側が振り分ける
+                const res = await fetch(WORKER_ENDPOINT, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify({
+                        action: 'suggest',
+                        idea: idea
+                    })
                 });
-
-                if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
-                const data = await response.json();
-                const generatedText = data.content?.[0]?.text?.trim();
-
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const data = await res.json();
+                const generatedText = data.text ? data.text.trim() : null;
                 if (generatedText) {
                     promptArea.value = generatedText;
                     promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
@@ -408,12 +400,11 @@
                         promptArea.classList.remove('bg-indigo-50', 'border-indigo-500');
                     }, 1200);
                 } else {
-                    throw new Error("EMPTY_RESPONSE");
+                    throw new Error('EMPTY');
                 }
-
             } catch(error) {
                 console.error("Text generation error:", error);
-                if (error.message === "NOT_PRODUCTION") {
+                if (error.message === 'NOT_PRODUCTION') {
                     autoPromptError.textContent = 'この機能はGitHub Pages（本番環境）でお試しください。';
                 } else {
                     autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
@@ -486,8 +477,8 @@
             promptText += `\n注意: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。`;
 
             try {
-                // Worker経由でGoogle Imagen APIにアクセス（シンプルなパス）
-                const endpoint = `${WORKER_URL}/api/image`;
+                // Workerのエンドポイント（actionで振り分け）
+                const endpoint = WORKER_ENDPOINT;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {
@@ -495,6 +486,7 @@
                 }
 
                 const payload = {
+                    action: 'image',
                     instances: [
                         { prompt: promptText }
                     ],

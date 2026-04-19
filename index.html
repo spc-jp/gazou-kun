@@ -336,13 +336,11 @@
         lucide.createIcons();
 
         // --- API & 環境設定 ---
-        // プレビュー環境（Canvas）で動いているかを自動判別します。
-        // blob:URLの場合、window.location.hostname が空になるブラウザがあるため、href（URL全体）で確実に判定します。
-        const isCanvas = window.location.href.includes('usercontent.goog') || window.location.protocol === 'blob:';
-        
-        // GitHub Pagesなどの本番環境でのみWorkerを使用します
-        const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev"; 
-        const apiKey = ""; // Canvas環境ではシステムが自動的にキーを入力します
+        // 本番環境（GitHub Pages / Cloudflare Pages）かどうかを判定します
+        const isProduction = window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev');
+
+        // Cloudflare Worker URL（本番環境で使用）
+        const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev";
 
         // DOM要素
         const form = document.getElementById('generate-form');
@@ -382,17 +380,21 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                // 環境に応じて通信先を完全に切り替えます（CanvasエラーとCORSを回避）
-                const textEndpoint = isCanvas 
-                    ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
-                    : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
-                
-                // AIへの指示
-                const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
-                
+                // 本番環境以外（ローカル・プレビュー）ではWorkerに届かないため案内を表示
+                if (!isProduction) {
+                    throw new Error("NOT_PRODUCTION");
+                }
+
+                // Worker経由でClaude APIにアクセス（APIキーはWorker側で管理）
+                const textEndpoint = `${WORKER_URL}/api/suggest`;
+
                 const payload = {
-                    contents: [{ parts: [{ text: `タイトル・キャッチコピー: ${idea}` }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                    model: "claude-haiku-4-5-20251001",
+                    max_tokens: 300,
+                    messages: [{
+                        role: "user",
+                        content: `以下のタイトル・キャッチコピーから、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。\n出力はプロンプトの文章（100文字以内）のみとし、挨拶・説明・記号は一切含めないでください。\n\nタイトル・キャッチコピー: ${idea}`
+                    }]
                 };
 
                 let retries = 3;
@@ -406,12 +408,16 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
                         });
-                        
-                        if (!response.ok) throw new Error(`API Error: ${response.status}`);
-                        
+
+                        if (!response.ok) {
+                            const errData = await response.json().catch(() => ({}));
+                            throw new Error(`API Error: ${response.status} ${errData.error || ''}`);
+                        }
+
                         const data = await response.json();
-                        generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if(generatedText) break;
+                        // Claude APIのレスポンス形式: data.content[0].text
+                        generatedText = data.content?.[0]?.text?.trim();
+                        if (generatedText) break;
                     } catch(e) {
                         if (i === retries - 1) throw e;
                         await new Promise(r => setTimeout(r, delay));
@@ -420,18 +426,24 @@
                 }
 
                 if (generatedText) {
-                    promptArea.value = generatedText.trim();
+                    promptArea.value = generatedText;
                     promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
                     setTimeout(() => {
                         promptArea.classList.remove('bg-indigo-50', 'border-indigo-500');
-                    }, 1000);
+                    }, 1200);
                 } else {
-                    throw new Error("Empty response");
+                    throw new Error("EMPTY_RESPONSE");
                 }
 
             } catch(error) {
                 console.error("Text generation error:", error);
-                autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
+                if (error.message === "NOT_PRODUCTION") {
+                    autoPromptError.textContent = 'この機能はGitHub Pages（本番環境）でお試しください。';
+                } else if (error.message === "EMPTY_RESPONSE") {
+                    autoPromptError.textContent = 'AIから返答がありませんでした。もう一度お試しください。';
+                } else {
+                    autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
+                }
                 autoPromptError.classList.remove('hidden');
             } finally {
                 autoPromptBtn.disabled = false;
@@ -500,10 +512,8 @@
             promptText += `\n注意: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。`;
 
             try {
-                // 環境に応じて通信先を自動切り替え
-                const endpoint = isCanvas
-                    ? `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`
-                    : `${WORKER_URL}/v1beta/models/imagen-3.0-generate-001:predict`;
+                // 本番環境: Worker経由でGoogle Imagen APIにアクセス
+                const endpoint = `${WORKER_URL}/v1beta/models/imagen-3.0-generate-001:predict`;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {

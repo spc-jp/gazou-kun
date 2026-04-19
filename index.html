@@ -377,9 +377,7 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                if (!isProduction) {
-                    throw new Error("NOT_PRODUCTION");
-                }
+                if (!isProduction) { throw new Error("NOT_PRODUCTION"); }
                 const res = await fetch(WORKER_ENDPOINT, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -391,9 +389,7 @@
                 if (generatedText) {
                     promptArea.value = generatedText;
                     promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
-                    setTimeout(() => {
-                        promptArea.classList.remove('bg-indigo-50', 'border-indigo-500');
-                    }, 1200);
+                    setTimeout(() => { promptArea.classList.remove('bg-indigo-50', 'border-indigo-500'); }, 1200);
                 } else {
                     throw new Error('AIからの返答が空でした');
                 }
@@ -458,18 +454,15 @@
 
             showLoading();
 
-            let promptText = `以下の条件で、高品質なサムネイル用の画像を生成してください。\n`;
-            promptText += `- 描画内容: ${subject}\n`;
-            promptText += `- アスペクト比: ${ratio} (必須要件: 必ずこの比率の長方形で出力してください)\n`;
-            
+            // ★ プロンプトにアスペクト比の文字を入れない（画像に文字が描かれるのを防止）
+            let promptText = `${subject}`;
             if (style !== '指定なし') {
-                promptText += `- スタイル: ${style}\n`;
+                promptText += `. ${style}`;
             }
             if (color !== '指定なし') {
-                promptText += `- 基調となる色（グラデーションや指定色）: ${color}\n`;
+                promptText += `. カラーテーマ: ${color}`;
             }
-            
-            promptText += `\n注意: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。`;
+            promptText += `. 画像内にテキスト・文字・数字を一切含めないこと。クリーンな背景のみ。`;
 
             try {
                 const endpoint = WORKER_ENDPOINT;
@@ -509,7 +502,7 @@
                             responseData = `data:image/png;base64,${base64Data}`;
                             break; 
                         } else {
-                            throw new Error("画像データなし: " + JSON.stringify(result));
+                            throw new Error("画像データなし: " + JSON.stringify(result).substring(0, 100));
                         }
                     } catch (error) {
                         if (i === retries - 1) throw error; 

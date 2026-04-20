@@ -132,9 +132,9 @@
                             </div>
                             <p class="text-xs text-indigo-600 mb-3">記事のタイトルやアプリ名を入力すると、AIが「描く内容」を具体的に提案します。</p>
                             <div class="flex flex-col gap-2">
-                                <div class="flex gap-2">
-                                    <input type="text" id="idea-input" class="flex-grow px-3 py-2.5 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white shadow-sm" placeholder="例：初心者向けAI活用ガイド">
-                                    <button type="button" id="auto-prompt-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-sm min-w-[105px]">
+                                <div class="flex flex-col gap-2">
+                                    <input type="text" id="idea-input" class="w-full px-3 py-2.5 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white shadow-sm" placeholder="例：初心者向けAI活用ガイド">
+                                    <button type="button" id="auto-prompt-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm">
                                         <i data-lucide="sparkles" class="w-4 h-4"></i>
                                         <span id="auto-prompt-text">考えて！</span>
                                     </button>
@@ -329,6 +329,49 @@
 
     </main>
 
+    <!-- MJプロンプトエリア（画像生成後に表示） -->
+    <div id="mj-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 w-full">
+        <div class="bg-white rounded-2xl shadow-sm border border-purple-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2 text-purple-800">
+                    <i data-lucide="wand-2" class="w-5 h-5 text-purple-500"></i>
+                    Midjourneyプロンプト
+                </h2>
+                <button id="mj-generate-btn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    <span id="mj-btn-text">MJプロンプトを生成する</span>
+                </button>
+            </div>
+
+            <!-- 生成前の案内 -->
+            <div id="mj-placeholder" class="text-sm text-slate-500 bg-slate-50 rounded-xl p-4">
+                上のボタンを押すと、この画像のMidjourneyプロンプトを生成します。毎回異なる背景を提案します。
+            </div>
+
+            <!-- ローディング -->
+            <div id="mj-loading" class="hidden text-sm text-purple-600 font-bold animate-pulse bg-purple-50 rounded-xl p-4 text-center">
+                ✨ Claudeがプロンプトを考えています...
+            </div>
+
+            <!-- 生成結果 -->
+            <div id="mj-result" class="hidden">
+                <textarea id="mj-prompt-text" rows="4" readonly
+                    class="w-full px-4 py-3 rounded-xl border border-purple-200 bg-purple-50 text-sm text-slate-800 resize-none font-mono leading-relaxed"></textarea>
+                <div class="flex gap-2 mt-3">
+                    <button id="mj-copy-btn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                        コピーする
+                    </button>
+                    <button id="mj-regen-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-4 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        別の案を生成
+                    </button>
+                </div>
+                <p id="mj-copy-msg" class="hidden text-xs text-green-600 font-bold mt-2 text-center">✅ コピーしました！</p>
+            </div>
+        </div>
+    </div>
+
     <!-- フッター -->
     <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center items-center">
@@ -356,6 +399,16 @@
         const retryBtn = document.getElementById('retry-btn');
         const resetBtn = document.getElementById('reset-btn');
         const logoBtn = document.getElementById('logo-btn');
+        const mjSection = document.getElementById('mj-section');
+        const mjGenerateBtn = document.getElementById('mj-generate-btn');
+        const mjBtnText = document.getElementById('mj-btn-text');
+        const mjPlaceholder = document.getElementById('mj-placeholder');
+        const mjLoading = document.getElementById('mj-loading');
+        const mjResult = document.getElementById('mj-result');
+        const mjPromptText = document.getElementById('mj-prompt-text');
+        const mjCopyBtn = document.getElementById('mj-copy-btn');
+        const mjRegenBtn = document.getElementById('mj-regen-btn');
+        const mjCopyMsg = document.getElementById('mj-copy-msg');
         const promptArea = document.getElementById('prompt');
 
         // AIプロンプト提案用のDOM要素
@@ -426,8 +479,10 @@
         });
 
         let currentImageUrl = null;
+        let currentSubject = '';
+        let currentRatio = '16:9';
 
-        // リセット関数（初期画面に戻る）
+        // ── リセット関数 ──────────────────────────────
         function resetToInitial() {
             currentImageUrl = null;
             resultImage.src = '';
@@ -437,15 +492,71 @@
             errorState.classList.add('hidden');
             loadingState.classList.add('hidden');
             placeholderState.classList.remove('hidden');
+            mjSection.classList.add('hidden');
+            mjPlaceholder.classList.remove('hidden');
+            mjLoading.classList.add('hidden');
+            mjResult.classList.add('hidden');
+            mjPromptText.value = '';
             generateBtn.disabled = false;
             generateBtn.classList.remove('opacity-70', 'cursor-not-allowed');
         }
 
-        // ロゴクリックで初期画面に戻る
         logoBtn.addEventListener('click', resetToInitial);
-
-        // 「最初に戻る」ボタン
         resetBtn.addEventListener('click', resetToInitial);
+
+        // ── MJプロンプト生成 ──────────────────────────
+        async function generateMJPrompt() {
+            mjBtnText.textContent = '生成中...';
+            mjGenerateBtn.disabled = true;
+            mjPlaceholder.classList.add('hidden');
+            mjResult.classList.add('hidden');
+            mjLoading.classList.remove('hidden');
+            mjCopyMsg.classList.add('hidden');
+
+            // アスペクト比をMJ形式に変換
+            const ratioMap = { '16:9': '16:9', '1.91:1': '16:9', '4:3': '4:3', '1:1': '1:1' };
+            const mjAr = ratioMap[currentRatio] || '16:9';
+
+            try {
+                const res = await fetch(WORKER_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'mjprompt',
+                        subject: currentSubject,
+                        ratio: mjAr
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'APIエラー');
+                if (data.text) {
+                    mjPromptText.value = data.text.trim();
+                    mjLoading.classList.add('hidden');
+                    mjResult.classList.remove('hidden');
+                } else {
+                    throw new Error('プロンプトの生成に失敗しました');
+                }
+            } catch(e) {
+                mjLoading.classList.add('hidden');
+                mjPlaceholder.classList.remove('hidden');
+                mjPlaceholder.textContent = 'エラー: ' + e.message;
+            } finally {
+                mjBtnText.textContent = 'MJプロンプトを生成する';
+                mjGenerateBtn.disabled = false;
+            }
+        }
+
+        mjGenerateBtn.addEventListener('click', generateMJPrompt);
+        mjRegenBtn.addEventListener('click', generateMJPrompt);
+
+        mjCopyBtn.addEventListener('click', () => {
+            if (mjPromptText.value) {
+                navigator.clipboard.writeText(mjPromptText.value).then(() => {
+                    mjCopyMsg.classList.remove('hidden');
+                    setTimeout(() => mjCopyMsg.classList.add('hidden'), 2000);
+                });
+            }
+        });
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -555,6 +666,8 @@
 
         function showSuccess(imageUrl) {
             currentImageUrl = imageUrl;
+            currentSubject = promptArea.value;
+            currentRatio = document.getElementById('ratio').value;
             resultImage.src = imageUrl;
             
             loadingState.classList.add('hidden');
@@ -564,6 +677,7 @@
             resultImage.classList.remove('hidden');
             downloadBtn.classList.remove('hidden');
             resetBtn.classList.remove('hidden');
+            mjSection.classList.remove('hidden');
             
             generateBtn.disabled = false;
             generateBtn.classList.remove('opacity-70', 'cursor-not-allowed');

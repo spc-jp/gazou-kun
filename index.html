@@ -341,13 +341,8 @@
         lucide.createIcons();
 
         // --- API & 環境設定 ---
-        // プレビュー環境（Canvas）で動いているかを自動判別します。
-        // blob:URLの場合、window.location.hostname が空になるブラウザがあるため、href（URL全体）で確実に判定します。
-        const isCanvas = window.location.href.includes('usercontent.goog') || window.location.protocol === 'blob:';
-        
-        // GitHub Pagesなどの本番環境でのみWorkerを使用します
-        const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev"; 
-        const apiKey = ""; // Canvas環境ではシステムが自動的にキーを入力します
+        const isProduction = window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev');
+        const WORKER_ENDPOINT = "https://gazou-kun.yymmatsu.workers.dev";
 
         // DOM要素
         const form = document.getElementById('generate-form');
@@ -389,56 +384,29 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                // 環境に応じて通信先を完全に切り替えます（CanvasエラーとCORSを回避）
-                const textEndpoint = isCanvas 
-                    ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
-                    : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
-                
-                // AIへの指示
-                const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
-                
-                const payload = {
-                    contents: [{ parts: [{ text: `タイトル・キャッチコピー: ${idea}` }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] }
-                };
-
-                let retries = 3;
-                let delay = 1000;
-                let generatedText = null;
-
-                for (let i = 0; i < retries; i++) {
-                    try {
-                        const response = await fetch(textEndpoint, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        
-                        if (!response.ok) throw new Error(`API Error: ${response.status}`);
-                        
-                        const data = await response.json();
-                        generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if(generatedText) break;
-                    } catch(e) {
-                        if (i === retries - 1) throw e;
-                        await new Promise(r => setTimeout(r, delay));
-                        delay *= 2;
-                    }
-                }
-
+                if (!isProduction) { throw new Error("NOT_PRODUCTION"); }
+                const res = await fetch(WORKER_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'suggest', idea: idea })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'APIエラー');
+                const generatedText = data.text ? data.text.trim() : null;
                 if (generatedText) {
-                    promptArea.value = generatedText.trim();
+                    promptArea.value = generatedText;
                     promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
-                    setTimeout(() => {
-                        promptArea.classList.remove('bg-indigo-50', 'border-indigo-500');
-                    }, 1000);
+                    setTimeout(() => { promptArea.classList.remove('bg-indigo-50', 'border-indigo-500'); }, 1200);
                 } else {
-                    throw new Error("Empty response");
+                    throw new Error('AIからの返答が空でした');
                 }
-
             } catch(error) {
                 console.error("Text generation error:", error);
-                autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
+                if (error.message === 'NOT_PRODUCTION') {
+                    autoPromptError.textContent = 'この機能はGitHub Pages（本番環境）でお試しください。';
+                } else {
+                    autoPromptError.textContent = 'エラー: ' + error.message;
+                }
                 autoPromptError.classList.remove('hidden');
             } finally {
                 autoPromptBtn.disabled = false;
@@ -513,24 +481,13 @@
 
             showLoading();
 
-            let promptText = `以下の条件で、高品質なサムネイル用の画像を生成してください。\n`;
-            promptText += `- 描画内容: ${subject}\n`;
-            promptText += `- アスペクト比: ${ratio} (必須要件: 必ずこの比率の長方形で出力してください)\n`;
-            
-            if (style !== '指定なし') {
-                promptText += `- スタイル: ${style}\n`;
-            }
-            if (color !== '指定なし') {
-                promptText += `- 基調となる色（グラデーションや指定色）: ${color}\n`;
-            }
-            
-            promptText += `\n注意: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。`;
+            let promptText = `${subject}`;
+            if (style !== '指定なし') { promptText += `. ${style}`; }
+            if (color !== '指定なし') { promptText += `. カラーテーマ: ${color}`; }
+            promptText += `. 画像内にテキスト・文字・数字を一切含めないこと。プロフェッショナルでクリーンなデザイン。`;
 
             try {
-                // 環境に応じて通信先を自動切り替え
-                const endpoint = isCanvas
-                    ? `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`
-                    : `${WORKER_URL}/v1beta/models/imagen-3.0-generate-001:predict`;
+                const endpoint = WORKER_ENDPOINT;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {
@@ -538,9 +495,8 @@
                 }
 
                 const payload = {
-                    instances: [
-                        { prompt: promptText }
-                    ],
+                    action: 'image',
+                    instances: [{ prompt: promptText }],
                     parameters: { 
                         sampleCount: 1,
                         aspectRatio: apiAspectRatio
@@ -559,18 +515,16 @@
                             body: JSON.stringify(payload)
                         });
 
-                        if (!response.ok) {
-                            throw new Error(`サーバーエラーが発生しました (Status: ${response.status})`);
-                        }
-
                         const result = await response.json();
+                        if (!response.ok) {
+                            throw new Error(result.error || `APIエラー (Status: ${response.status})`);
+                        }
                         const base64Data = result.predictions?.[0]?.bytesBase64Encoded;
-
                         if (base64Data) {
                             responseData = `data:image/png;base64,${base64Data}`;
                             break; 
                         } else {
-                            throw new Error("画像データを取得できませんでした。");
+                            throw new Error("画像データなし: " + JSON.stringify(result).substring(0, 100));
                         }
                     } catch (error) {
                         if (i === retries - 1) throw error; 
@@ -585,7 +539,7 @@
 
             } catch (error) {
                 console.error("Generation error:", error);
-                showError("画像の生成中にエラーが発生しました。時間を置いて再度お試しください。");
+                showError("エラー: " + error.message);
             }
         }
 

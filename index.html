@@ -99,7 +99,7 @@
             <div class="flex items-center gap-2">
                 <i data-lucide="image" class="text-blue-600 w-6 h-6"></i>
                 <div class="flex items-baseline gap-3">
-                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">画像くん</h1>
+                    <h1 id="logo-btn" class="text-xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 transition-colors" title="最初に戻る">画像くん</h1>
                     <span class="text-sm text-slate-500 font-medium hidden sm:block">あなたのアイデア、10秒で画像に</span>
                 </div>
             </div>
@@ -132,9 +132,9 @@
                             </div>
                             <p class="text-xs text-indigo-600 mb-3">記事のタイトルやアプリ名を入力すると、AIが「描く内容」を具体的に提案します。</p>
                             <div class="flex flex-col gap-2">
-                                <div class="flex flex-col gap-2">
-                                    <input type="text" id="idea-input" class="w-full px-3 py-2.5 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white shadow-sm" placeholder="例：初心者向けAI活用ガイド">
-                                    <button type="button" id="auto-prompt-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm">
+                                <div class="flex gap-2">
+                                    <input type="text" id="idea-input" class="flex-grow px-3 py-2.5 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white shadow-sm" placeholder="例：初心者向けAI活用ガイド">
+                                    <button type="button" id="auto-prompt-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-sm min-w-[105px]">
                                         <i data-lucide="sparkles" class="w-4 h-4"></i>
                                         <span id="auto-prompt-text">考えて！</span>
                                     </button>
@@ -259,6 +259,11 @@
                         <i data-lucide="monitor-play" class="w-5 h-5 text-slate-500"></i>
                         プレビュー
                     </h2>
+                    <!-- 戻るボタン（初期は非表示） -->
+                    <button id="reset-btn" class="hidden text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-4 rounded-lg font-medium transition-colors flex items-center gap-2">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        最初に戻る
+                    </button>
                     <!-- ダウンロードボタン（初期は非表示） -->
                     <button id="download-btn" class="hidden text-sm bg-slate-900 hover:bg-slate-800 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center gap-2">
                         <i data-lucide="download" class="w-4 h-4"></i>
@@ -336,8 +341,13 @@
         lucide.createIcons();
 
         // --- API & 環境設定 ---
-        const isProduction = window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev');
-        const WORKER_ENDPOINT = "https://gazou-kun.yymmatsu.workers.dev";
+        // プレビュー環境（Canvas）で動いているかを自動判別します。
+        // blob:URLの場合、window.location.hostname が空になるブラウザがあるため、href（URL全体）で確実に判定します。
+        const isCanvas = window.location.href.includes('usercontent.goog') || window.location.protocol === 'blob:';
+        
+        // GitHub Pagesなどの本番環境でのみWorkerを使用します
+        const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev"; 
+        const apiKey = ""; // Canvas環境ではシステムが自動的にキーを入力します
 
         // DOM要素
         const form = document.getElementById('generate-form');
@@ -349,6 +359,8 @@
         const errorMessageEl = document.getElementById('error-message');
         const resultImage = document.getElementById('result-image');
         const retryBtn = document.getElementById('retry-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const logoBtn = document.getElementById('logo-btn');
         const promptArea = document.getElementById('prompt');
 
         // AIプロンプト提案用のDOM要素
@@ -377,29 +389,56 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                if (!isProduction) { throw new Error("NOT_PRODUCTION"); }
-                const res = await fetch(WORKER_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'suggest', idea: idea })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'APIエラー');
-                const generatedText = data.text ? data.text.trim() : null;
-                if (generatedText) {
-                    promptArea.value = generatedText;
-                    promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
-                    setTimeout(() => { promptArea.classList.remove('bg-indigo-50', 'border-indigo-500'); }, 1200);
-                } else {
-                    throw new Error('AIからの返答が空でした');
+                // 環境に応じて通信先を完全に切り替えます（CanvasエラーとCORSを回避）
+                const textEndpoint = isCanvas 
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
+                    : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
+                
+                // AIへの指示
+                const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
+                
+                const payload = {
+                    contents: [{ parts: [{ text: `タイトル・キャッチコピー: ${idea}` }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+
+                let retries = 3;
+                let delay = 1000;
+                let generatedText = null;
+
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const response = await fetch(textEndpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                        
+                        const data = await response.json();
+                        generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if(generatedText) break;
+                    } catch(e) {
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2;
+                    }
                 }
+
+                if (generatedText) {
+                    promptArea.value = generatedText.trim();
+                    promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
+                    setTimeout(() => {
+                        promptArea.classList.remove('bg-indigo-50', 'border-indigo-500');
+                    }, 1000);
+                } else {
+                    throw new Error("Empty response");
+                }
+
             } catch(error) {
                 console.error("Text generation error:", error);
-                if (error.message === 'NOT_PRODUCTION') {
-                    autoPromptError.textContent = 'この機能はGitHub Pages（本番環境）でお試しください。';
-                } else {
-                    autoPromptError.textContent = 'エラー: ' + error.message;
-                }
+                autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
                 autoPromptError.classList.remove('hidden');
             } finally {
                 autoPromptBtn.disabled = false;
@@ -419,6 +458,26 @@
         });
 
         let currentImageUrl = null;
+
+        // リセット関数（初期画面に戻る）
+        function resetToInitial() {
+            currentImageUrl = null;
+            resultImage.src = '';
+            resultImage.classList.add('hidden');
+            downloadBtn.classList.add('hidden');
+            resetBtn.classList.add('hidden');
+            errorState.classList.add('hidden');
+            loadingState.classList.add('hidden');
+            placeholderState.classList.remove('hidden');
+            generateBtn.disabled = false;
+            generateBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+        }
+
+        // ロゴクリックで初期画面に戻る
+        logoBtn.addEventListener('click', resetToInitial);
+
+        // 「最初に戻る」ボタン
+        resetBtn.addEventListener('click', resetToInitial);
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -454,14 +513,24 @@
 
             showLoading();
 
-            // アスペクト比の文字はプロンプトに入れない（画像に文字が描かれるのを防止）
-            let promptText = `${subject}`;
-            if (style !== '指定なし') { promptText += `. ${style}`; }
-            if (color !== '指定なし') { promptText += `. カラーテーマ: ${color}`; }
-            promptText += `. 画像内にテキスト・文字・数字を一切含めないこと。プロフェッショナルでクリーンなデザイン。`;
+            let promptText = `以下の条件で、高品質なサムネイル用の画像を生成してください。\n`;
+            promptText += `- 描画内容: ${subject}\n`;
+            promptText += `- アスペクト比: ${ratio} (必須要件: 必ずこの比率の長方形で出力してください)\n`;
+            
+            if (style !== '指定なし') {
+                promptText += `- スタイル: ${style}\n`;
+            }
+            if (color !== '指定なし') {
+                promptText += `- 基調となる色（グラデーションや指定色）: ${color}\n`;
+            }
+            
+            promptText += `\n注意: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。`;
 
             try {
-                const endpoint = WORKER_ENDPOINT;
+                // 環境に応じて通信先を自動切り替え
+                const endpoint = isCanvas
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`
+                    : `${WORKER_URL}/v1beta/models/imagen-3.0-generate-001:predict`;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {
@@ -469,8 +538,9 @@
                 }
 
                 const payload = {
-                    action: 'image',
-                    instances: [{ prompt: promptText }],
+                    instances: [
+                        { prompt: promptText }
+                    ],
                     parameters: { 
                         sampleCount: 1,
                         aspectRatio: apiAspectRatio
@@ -489,16 +559,18 @@
                             body: JSON.stringify(payload)
                         });
 
-                        const result = await response.json();
                         if (!response.ok) {
-                            throw new Error(result.error || `APIエラー (Status: ${response.status})`);
+                            throw new Error(`サーバーエラーが発生しました (Status: ${response.status})`);
                         }
+
+                        const result = await response.json();
                         const base64Data = result.predictions?.[0]?.bytesBase64Encoded;
+
                         if (base64Data) {
                             responseData = `data:image/png;base64,${base64Data}`;
                             break; 
                         } else {
-                            throw new Error("画像データなし: " + JSON.stringify(result).substring(0, 100));
+                            throw new Error("画像データを取得できませんでした。");
                         }
                     } catch (error) {
                         if (i === retries - 1) throw error; 
@@ -513,7 +585,7 @@
 
             } catch (error) {
                 console.error("Generation error:", error);
-                showError("エラー: " + error.message);
+                showError("画像の生成中にエラーが発生しました。時間を置いて再度お試しください。");
             }
         }
 
@@ -537,6 +609,7 @@
             
             resultImage.classList.remove('hidden');
             downloadBtn.classList.remove('hidden');
+            resetBtn.classList.remove('hidden');
             
             generateBtn.disabled = false;
             generateBtn.classList.remove('opacity-70', 'cursor-not-allowed');

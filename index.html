@@ -259,7 +259,6 @@
                         <i data-lucide="monitor-play" class="w-5 h-5 text-slate-500"></i>
                         プレビュー
                     </h2>
-                    <!-- 戻るボタン（初期は非表示） -->
                     <button id="reset-btn" class="hidden text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-4 rounded-lg font-medium transition-colors flex items-center gap-2">
                         <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
                         最初に戻る
@@ -329,7 +328,7 @@
 
     </main>
 
-    <!-- MJプロンプトエリア（画像生成後に表示） -->
+    <!-- MJプロンプトエリア -->
     <div id="mj-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 w-full">
         <div class="bg-white rounded-2xl shadow-sm border border-purple-200 p-6">
             <div class="flex items-center justify-between mb-4">
@@ -342,18 +341,12 @@
                     <span id="mj-btn-text">MJプロンプトを生成する</span>
                 </button>
             </div>
-
-            <!-- 生成前の案内 -->
             <div id="mj-placeholder" class="text-sm text-slate-500 bg-slate-50 rounded-xl p-4">
                 上のボタンを押すと、この画像のMidjourneyプロンプトを生成します。毎回異なる背景を提案します。
             </div>
-
-            <!-- ローディング -->
             <div id="mj-loading" class="hidden text-sm text-purple-600 font-bold animate-pulse bg-purple-50 rounded-xl p-4 text-center">
                 ✨ Claudeがプロンプトを考えています...
             </div>
-
-            <!-- 生成結果 -->
             <div id="mj-result" class="hidden">
                 <textarea id="mj-prompt-text" rows="4" readonly
                     class="w-full px-4 py-3 rounded-xl border border-purple-200 bg-purple-50 text-sm text-slate-800 resize-none font-mono leading-relaxed"></textarea>
@@ -482,7 +475,6 @@
         let currentSubject = '';
         let currentRatio = '16:9';
 
-        // ── リセット関数 ──────────────────────────────
         function resetToInitial() {
             currentImageUrl = null;
             resultImage.src = '';
@@ -504,7 +496,6 @@
         logoBtn.addEventListener('click', resetToInitial);
         resetBtn.addEventListener('click', resetToInitial);
 
-        // ── MJプロンプト生成 ──────────────────────────
         async function generateMJPrompt() {
             mjBtnText.textContent = '生成中...';
             mjGenerateBtn.disabled = true;
@@ -512,20 +503,13 @@
             mjResult.classList.add('hidden');
             mjLoading.classList.remove('hidden');
             mjCopyMsg.classList.add('hidden');
-
-            // アスペクト比をMJ形式に変換
             const ratioMap = { '16:9': '16:9', '1.91:1': '16:9', '4:3': '4:3', '1:1': '1:1' };
             const mjAr = ratioMap[currentRatio] || '16:9';
-
             try {
                 const res = await fetch(WORKER_ENDPOINT, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'mjprompt',
-                        subject: currentSubject,
-                        ratio: mjAr
-                    })
+                    body: JSON.stringify({ action: 'mjprompt', subject: currentSubject, ratio: mjAr })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'APIエラー');
@@ -548,7 +532,6 @@
 
         mjGenerateBtn.addEventListener('click', generateMJPrompt);
         mjRegenBtn.addEventListener('click', generateMJPrompt);
-
         mjCopyBtn.addEventListener('click', () => {
             if (mjPromptText.value) {
                 navigator.clipboard.writeText(mjPromptText.value).then(() => {
@@ -608,10 +591,7 @@
                 const payload = {
                     action: 'image',
                     instances: [{ prompt: promptText }],
-                    parameters: { 
-                        sampleCount: 1,
-                        aspectRatio: apiAspectRatio
-                    }
+                    parameters: { sampleCount: 1, aspectRatio: apiAspectRatio }
                 };
 
                 let retries = 5;
@@ -633,20 +613,18 @@
                         const base64Data = result.predictions?.[0]?.bytesBase64Encoded;
                         if (base64Data) {
                             responseData = `data:image/png;base64,${base64Data}`;
-                            break; 
+                            break;
                         } else {
                             throw new Error("画像データなし: " + JSON.stringify(result).substring(0, 100));
                         }
                     } catch (error) {
-                        if (i === retries - 1) throw error; 
+                        if (i === retries - 1) throw error;
                         await new Promise(resolve => setTimeout(resolve, delay));
-                        delay *= 2; 
+                        delay *= 2;
                     }
                 }
 
-                if (responseData) {
-                    showSuccess(responseData);
-                }
+                if (responseData) { showSuccess(responseData); }
 
             } catch (error) {
                 console.error("Generation error:", error);

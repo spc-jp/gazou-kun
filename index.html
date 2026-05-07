@@ -99,7 +99,7 @@
             <div class="flex items-center gap-2">
                 <i data-lucide="image" class="text-blue-600 w-6 h-6"></i>
                 <div class="flex items-baseline gap-3">
-                    <h1 id="logo-btn" class="text-xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 transition-colors" title="最初に戻る">画像くん</h1>
+                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">画像くん</h1>
                     <span class="text-sm text-slate-500 font-medium hidden sm:block">あなたのアイデア、10秒で画像に</span>
                 </div>
             </div>
@@ -132,9 +132,9 @@
                             </div>
                             <p class="text-xs text-indigo-600 mb-3">記事のタイトルやアプリ名を入力すると、AIが「描く内容」を具体的に提案します。</p>
                             <div class="flex flex-col gap-2">
-                                <div class="flex flex-col gap-2">
-                                    <input type="text" id="idea-input" class="w-full px-3 py-2.5 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white shadow-sm" placeholder="例：初心者向けAI活用ガイド">
-                                    <button type="button" id="auto-prompt-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-sm">
+                                <div class="flex gap-2">
+                                    <input type="text" id="idea-input" class="flex-grow px-3 py-2.5 rounded-lg border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white shadow-sm" placeholder="例：初心者向けAI活用ガイド">
+                                    <button type="button" id="auto-prompt-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-sm min-w-[105px]">
                                         <i data-lucide="sparkles" class="w-4 h-4"></i>
                                         <span id="auto-prompt-text">考えて！</span>
                                     </button>
@@ -174,12 +174,16 @@
                         </label>
                         <select id="style" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none bg-white shadow-sm appearance-none">
                             <option value="モダンで洗練されたフラットデザイン。企業のブログやSaaSのヘッダーに最適。">フラットデザイン（モダン）</option>
+                            <option value="映画のワンシーンのようなドラマチックなライティングと構図。シネマティックで高品質な表現。">シネマティック（映画シーン）</option>
                             <option value="クレイモーフィズム。少しぷっくりとした粘土のような立体的で可愛らしい3Dスタイル。">クレイモーフィズム（3D）</option>
+                            <option value="なめらかで表情豊かな、海外の高品質な3Dアニメーション映画のようなスタイル。">3Dアニメ（ピクサー風）</option>
                             <option value="高品質な写真のようなリアルな表現。ライティングが美しい。">実写・フォトリアル</option>
                             <option value="淡い水彩画のような優しく温かみのあるイラストスタイル。">水彩画風イラスト</option>
+                            <option value="80年代・90年代の日本のシティポップ風。レトロポップで鮮やかな色使いのイラスト。">レトロポップ（80s/90s）</option>
                             <option value="サイバーパンク風。ネオンカラーと未来的な要素。">サイバーパンク・ネオン</option>
                             <option value="ミニマリズム。余白を大きく取り、要素を最小限に抑えた洗練されたスタイル。">ミニマル・シンプル</option>
                             <option value="スタジオジブリの映画のような、美しくノスタルジックな風景と温かみのある手描き風のアニメーションスタイル。">ジブリ風アニメ・漫画</option>
+                            <option value="墨の濃淡や和の色彩で描かれた、美しく静寂な日本の伝統的なスタイル。">水墨画・和風</option>
                             <option value="指定なし">おまかせ（指定なし）</option>
                         </select>
                     </div>
@@ -259,10 +263,6 @@
                         <i data-lucide="monitor-play" class="w-5 h-5 text-slate-500"></i>
                         プレビュー
                     </h2>
-                    <button id="reset-btn" class="hidden text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-4 rounded-lg font-medium transition-colors flex items-center gap-2">
-                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
-                        最初に戻る
-                    </button>
                     <!-- ダウンロードボタン（初期は非表示） -->
                     <button id="download-btn" class="hidden text-sm bg-slate-900 hover:bg-slate-800 text-white py-2 px-4 rounded-lg font-medium transition-colors flex items-center gap-2">
                         <i data-lucide="download" class="w-4 h-4"></i>
@@ -328,43 +328,6 @@
 
     </main>
 
-    <!-- MJプロンプトエリア -->
-    <div id="mj-section" class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 w-full">
-        <div class="bg-white rounded-2xl shadow-sm border border-purple-200 p-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold flex items-center gap-2 text-purple-800">
-                    <i data-lucide="wand-2" class="w-5 h-5 text-purple-500"></i>
-                    Midjourneyプロンプト
-                </h2>
-                <button id="mj-generate-btn" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm">
-                    <i data-lucide="sparkles" class="w-4 h-4"></i>
-                    <span id="mj-btn-text">MJプロンプトを生成する</span>
-                </button>
-            </div>
-            <div id="mj-placeholder" class="text-sm text-slate-500 bg-slate-50 rounded-xl p-4">
-                上のボタンを押すと、この画像のMidjourneyプロンプトを生成します。毎回異なる背景を提案します。
-            </div>
-            <div id="mj-loading" class="hidden text-sm text-purple-600 font-bold animate-pulse bg-purple-50 rounded-xl p-4 text-center">
-                ✨ Claudeがプロンプトを考えています...
-            </div>
-            <div id="mj-result" class="hidden">
-                <textarea id="mj-prompt-text" rows="4" readonly
-                    class="w-full px-4 py-3 rounded-xl border border-purple-200 bg-purple-50 text-sm text-slate-800 resize-none font-mono leading-relaxed"></textarea>
-                <div class="flex gap-2 mt-3">
-                    <button id="mj-copy-btn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                        <i data-lucide="copy" class="w-4 h-4"></i>
-                        コピーする
-                    </button>
-                    <button id="mj-regen-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-4 rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                        <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                        別の案を生成
-                    </button>
-                </div>
-                <p id="mj-copy-msg" class="hidden text-xs text-green-600 font-bold mt-2 text-center">✅ コピーしました！</p>
-            </div>
-        </div>
-    </div>
-
     <!-- フッター -->
     <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center items-center">
@@ -377,8 +340,11 @@
         lucide.createIcons();
 
         // --- API & 環境設定 ---
-        const isProduction = window.location.hostname.includes('github.io') || window.location.hostname.includes('pages.dev');
-        const WORKER_ENDPOINT = "https://gazou-kun.yymmatsu.workers.dev";
+        const isCanvas = window.location.href.includes('usercontent.goog') || window.location.protocol === 'blob:';
+        
+        // GitHub Pagesなどの本番環境でのみWorkerを使用します
+        const WORKER_URL = "https://gazou-kun.yymmatsu.workers.dev"; 
+        const apiKey = ""; // Canvas環境ではシステムが自動的にキーを入力します
 
         // DOM要素
         const form = document.getElementById('generate-form');
@@ -390,18 +356,6 @@
         const errorMessageEl = document.getElementById('error-message');
         const resultImage = document.getElementById('result-image');
         const retryBtn = document.getElementById('retry-btn');
-        const resetBtn = document.getElementById('reset-btn');
-        const logoBtn = document.getElementById('logo-btn');
-        const mjSection = document.getElementById('mj-section');
-        const mjGenerateBtn = document.getElementById('mj-generate-btn');
-        const mjBtnText = document.getElementById('mj-btn-text');
-        const mjPlaceholder = document.getElementById('mj-placeholder');
-        const mjLoading = document.getElementById('mj-loading');
-        const mjResult = document.getElementById('mj-result');
-        const mjPromptText = document.getElementById('mj-prompt-text');
-        const mjCopyBtn = document.getElementById('mj-copy-btn');
-        const mjRegenBtn = document.getElementById('mj-regen-btn');
-        const mjCopyMsg = document.getElementById('mj-copy-msg');
         const promptArea = document.getElementById('prompt');
 
         // AIプロンプト提案用のDOM要素
@@ -430,29 +384,56 @@
             autoPromptText.textContent = '考え中...';
 
             try {
-                if (!isProduction) { throw new Error("NOT_PRODUCTION"); }
-                const res = await fetch(WORKER_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'suggest', idea: idea })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'APIエラー');
-                const generatedText = data.text ? data.text.trim() : null;
-                if (generatedText) {
-                    promptArea.value = generatedText;
-                    promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
-                    setTimeout(() => { promptArea.classList.remove('bg-indigo-50', 'border-indigo-500'); }, 1200);
-                } else {
-                    throw new Error('AIからの返答が空でした');
+                // 環境に応じて通信先を完全に切り替えます
+                const textEndpoint = isCanvas 
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
+                    : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
+                
+                // AIへの指示 (人物を日本人に指定)
+                const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。もし人物が登場する情景の場合は、必ず日本人として描写するようにプロンプトに含めてください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
+                
+                const payload = {
+                    contents: [{ parts: [{ text: `タイトル・キャッチコピー: ${idea}` }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+
+                let retries = 3;
+                let delay = 1000;
+                let generatedText = null;
+
+                for (let i = 0; i < retries; i++) {
+                    try {
+                        const response = await fetch(textEndpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+                        
+                        const data = await response.json();
+                        generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if(generatedText) break;
+                    } catch(e) {
+                        if (i === retries - 1) throw e;
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2;
+                    }
                 }
+
+                if (generatedText) {
+                    promptArea.value = generatedText.trim();
+                    promptArea.classList.add('bg-indigo-50', 'border-indigo-500');
+                    setTimeout(() => {
+                        promptArea.classList.remove('bg-indigo-50', 'border-indigo-500');
+                    }, 1000);
+                } else {
+                    throw new Error("Empty response");
+                }
+
             } catch(error) {
                 console.error("Text generation error:", error);
-                if (error.message === 'NOT_PRODUCTION') {
-                    autoPromptError.textContent = 'この機能はGitHub Pages（本番環境）でお試しください。';
-                } else {
-                    autoPromptError.textContent = 'エラー: ' + error.message;
-                }
+                autoPromptError.textContent = 'プロンプトの作成に失敗しました。時間を置いてお試しください。';
                 autoPromptError.classList.remove('hidden');
             } finally {
                 autoPromptBtn.disabled = false;
@@ -472,74 +453,6 @@
         });
 
         let currentImageUrl = null;
-        let currentSubject = '';
-        let currentRatio = '16:9';
-
-        function resetToInitial() {
-            currentImageUrl = null;
-            resultImage.src = '';
-            resultImage.classList.add('hidden');
-            downloadBtn.classList.add('hidden');
-            resetBtn.classList.add('hidden');
-            errorState.classList.add('hidden');
-            loadingState.classList.add('hidden');
-            placeholderState.classList.remove('hidden');
-            mjSection.classList.add('hidden');
-            mjPlaceholder.classList.remove('hidden');
-            mjLoading.classList.add('hidden');
-            mjResult.classList.add('hidden');
-            mjPromptText.value = '';
-            generateBtn.disabled = false;
-            generateBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-        }
-
-        logoBtn.addEventListener('click', resetToInitial);
-        resetBtn.addEventListener('click', resetToInitial);
-
-        async function generateMJPrompt() {
-            mjBtnText.textContent = '生成中...';
-            mjGenerateBtn.disabled = true;
-            mjPlaceholder.classList.add('hidden');
-            mjResult.classList.add('hidden');
-            mjLoading.classList.remove('hidden');
-            mjCopyMsg.classList.add('hidden');
-            const ratioMap = { '16:9': '16:9', '1.91:1': '16:9', '4:3': '4:3', '1:1': '1:1' };
-            const mjAr = ratioMap[currentRatio] || '16:9';
-            try {
-                const res = await fetch(WORKER_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'mjprompt', subject: currentSubject, ratio: mjAr })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'APIエラー');
-                if (data.text) {
-                    mjPromptText.value = data.text.trim();
-                    mjLoading.classList.add('hidden');
-                    mjResult.classList.remove('hidden');
-                } else {
-                    throw new Error('プロンプトの生成に失敗しました');
-                }
-            } catch(e) {
-                mjLoading.classList.add('hidden');
-                mjPlaceholder.classList.remove('hidden');
-                mjPlaceholder.textContent = 'エラー: ' + e.message;
-            } finally {
-                mjBtnText.textContent = 'MJプロンプトを生成する';
-                mjGenerateBtn.disabled = false;
-            }
-        }
-
-        mjGenerateBtn.addEventListener('click', generateMJPrompt);
-        mjRegenBtn.addEventListener('click', generateMJPrompt);
-        mjCopyBtn.addEventListener('click', () => {
-            if (mjPromptText.value) {
-                navigator.clipboard.writeText(mjPromptText.value).then(() => {
-                    mjCopyMsg.classList.remove('hidden');
-                    setTimeout(() => mjCopyMsg.classList.add('hidden'), 2000);
-                });
-            }
-        });
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -575,13 +488,25 @@
 
             showLoading();
 
-            let promptText = `${subject}`;
-            if (style !== '指定なし') { promptText += `. ${style}`; }
-            if (color !== '指定なし') { promptText += `. カラーテーマ: ${color}`; }
-            promptText += `. 画像内にテキスト・文字・数字を一切含めないこと。プロフェッショナルでクリーンなデザイン。`;
+            let promptText = `以下の条件で、高品質なサムネイル用の画像を生成してください。\n`;
+            promptText += `- 描画内容: ${subject}\n`;
+            promptText += `- アスペクト比: ${ratio} (必須要件: 必ずこの比率の長方形で出力してください)\n`;
+            
+            if (style !== '指定なし') {
+                promptText += `- スタイル: ${style}\n`;
+            }
+            if (color !== '指定なし') {
+                promptText += `- 基調となる色（グラデーションや指定色）: ${color}\n`;
+            }
+            
+            promptText += `\n注意1: 画像内にはいかなる文字（テキスト、単語、アルファベット等）も含めないでください。ユーザーが後からテキストを重ねて使用するための、クリーンな背景・イラストとして機能するプロフェッショナルで洗練されたデザインにしてください。\n`;
+            promptText += `注意2: 人物が登場する場合、必ず日本人として描画してください。`;
 
             try {
-                const endpoint = WORKER_ENDPOINT;
+                // 環境に応じて通信先を自動切り替え
+                const endpoint = isCanvas
+                    ? `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`
+                    : `${WORKER_URL}/v1beta/models/imagen-3.0-generate-001:predict`;
                 
                 let apiAspectRatio = ratio;
                 if (ratio === '1.91:1') {
@@ -589,9 +514,13 @@
                 }
 
                 const payload = {
-                    action: 'image',
-                    instances: [{ prompt: promptText }],
-                    parameters: { sampleCount: 1, aspectRatio: apiAspectRatio }
+                    instances: [
+                        { prompt: promptText }
+                    ],
+                    parameters: { 
+                        sampleCount: 1,
+                        aspectRatio: apiAspectRatio
+                    }
                 };
 
                 let retries = 5;
@@ -606,29 +535,33 @@
                             body: JSON.stringify(payload)
                         });
 
-                        const result = await response.json();
                         if (!response.ok) {
-                            throw new Error(result.error || `APIエラー (Status: ${response.status})`);
+                            throw new Error(`サーバーエラーが発生しました (Status: ${response.status})`);
                         }
+
+                        const result = await response.json();
                         const base64Data = result.predictions?.[0]?.bytesBase64Encoded;
+
                         if (base64Data) {
                             responseData = `data:image/png;base64,${base64Data}`;
-                            break;
+                            break; 
                         } else {
-                            throw new Error("画像データなし: " + JSON.stringify(result).substring(0, 100));
+                            throw new Error("画像データを取得できませんでした。");
                         }
                     } catch (error) {
-                        if (i === retries - 1) throw error;
+                        if (i === retries - 1) throw error; 
                         await new Promise(resolve => setTimeout(resolve, delay));
-                        delay *= 2;
+                        delay *= 2; 
                     }
                 }
 
-                if (responseData) { showSuccess(responseData); }
+                if (responseData) {
+                    showSuccess(responseData);
+                }
 
             } catch (error) {
                 console.error("Generation error:", error);
-                showError("エラー: " + error.message);
+                showError("画像の生成中にエラーが発生しました。時間を置いて再度お試しください。");
             }
         }
 
@@ -644,8 +577,6 @@
 
         function showSuccess(imageUrl) {
             currentImageUrl = imageUrl;
-            currentSubject = promptArea.value;
-            currentRatio = document.getElementById('ratio').value;
             resultImage.src = imageUrl;
             
             loadingState.classList.add('hidden');
@@ -654,8 +585,6 @@
             
             resultImage.classList.remove('hidden');
             downloadBtn.classList.remove('hidden');
-            resetBtn.classList.remove('hidden');
-            mjSection.classList.remove('hidden');
             
             generateBtn.disabled = false;
             generateBtn.classList.remove('opacity-70', 'cursor-not-allowed');

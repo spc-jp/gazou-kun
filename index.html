@@ -407,7 +407,7 @@
                 // 環境に応じて通信先を完全に切り替えます
                 const textEndpoint = isCanvas 
                     ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
-                    : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
+                    : `${WORKER_URL}/v1beta/models/gemini-1.5-flash:generateContent`;
                 
                 // AIへの指示 (バズるサムネイルの極意を追加)
                 const systemPrompt = `あなたはプロの画像生成プロンプトエンジニアであり、バズるYouTubeやnoteのサムネイル画像の専門家です。
@@ -529,7 +529,7 @@
         async function generateMidjourneyPrompt(subject, ratio, style, color) {
             const textEndpoint = isCanvas 
                 ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
-                : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
+                : `${WORKER_URL}/v1beta/models/gemini-1.5-flash:generateContent`;
             
             let ar = ratio;
             if (ratio === '1.91:1') ar = '191:100';

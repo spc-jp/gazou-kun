@@ -233,11 +233,15 @@
                                 <p>後から文字を重ねるなら、<span class="text-indigo-600 font-medium text-xs bg-indigo-50 px-1 rounded">「左側に文字用の広い余白を空けて」</span>と付け足すと使いやすくなります。</p>
                             </div>
                             <div>
-                                <strong class="text-blue-900 block mb-0.5">2. 具体的な「スパイス」を足す</strong>
+                                <strong class="text-blue-900 block mb-0.5">2. 人気が出るサムネの鉄則（コントラスト）</strong>
+                                <p>スマホの小さな画面でも目立つよう、<span class="text-indigo-600 font-medium text-xs bg-indigo-50 px-1 rounded">「被写体を大きくクローズアップ」「鮮やかなコントラスト」「逆光でドラマチックに」</span>など、目を引くキーワードを入れるのがクリック率UPの秘訣です。</p>
+                            </div>
+                            <div>
+                                <strong class="text-blue-900 block mb-0.5">3. 具体的な「スパイス」を足す</strong>
                                 <p>AIの文章に、<span class="text-indigo-600 font-medium text-xs bg-indigo-50 px-1 rounded">「湯気の立つコーヒー」「差し込む夕日」</span>など、光や小物を指定すると表現力が上がります。</p>
                             </div>
                             <div>
-                                <strong class="text-blue-900 block mb-0.5">3. あえて「抽象的」にしてみる</strong>
+                                <strong class="text-blue-900 block mb-0.5">4. あえて「抽象的」にしてみる</strong>
                                 <p>具体的なものを描かず、<span class="text-indigo-600 font-medium text-xs bg-indigo-50 px-1 rounded">「波紋が広がる抽象的な背景」</span>のように指定するのも、プロっぽく仕上げる鉄板です。</p>
                             </div>
                         </div>
@@ -321,7 +325,23 @@
                     </div>
 
                     <!-- 生成された画像 -->
-                    <img id="result-image" src="" alt="生成されたサムネイル" class="hidden max-w-full max-h-full object-contain rounded-lg shadow-sm border border-slate-200">
+                    <img id="result-image" src="" alt="生成されたサムネイル" class="hidden max-w-full max-h-[60vh] object-contain rounded-lg shadow-sm border border-slate-200">
+                    
+                    <!-- Midjourney V8 プロンプト提案エリア (新規追加) -->
+                    <div id="mj-prompt-container" class="hidden mt-4 w-full max-w-2xl bg-white p-4 rounded-xl border border-indigo-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-bold text-indigo-800 flex items-center gap-1.5">
+                                <i data-lucide="bot" class="w-4 h-4"></i> Midjourney V8 専用プロンプト
+                            </span>
+                            <span class="text-[10px] text-slate-400">画像生成と同時にAIが考案しました</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="mj-prompt-output" readonly class="flex-grow text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+                            <button id="copy-mj-btn" type="button" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                                <i data-lucide="copy" class="w-3.5 h-3.5"></i> コピー
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -389,8 +409,14 @@
                     ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
                     : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
                 
-                // AIへの指示 (人物を日本人に指定)
-                const systemPrompt = "あなたはプロの画像生成プロンプトエンジニアです。ユーザーが入力した「記事のタイトルやキャッチコピー」から、画像生成AIに渡すための具体的な情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。もし人物が登場する情景の場合は、必ず日本人として描写するようにプロンプトに含めてください。出力はプロンプトの文章（100文字以内）のみとし、挨拶や説明は一切含めないでください。";
+                // AIへの指示 (バズるサムネイルの極意を追加)
+                const systemPrompt = `あなたはプロの画像生成プロンプトエンジニアであり、バズるYouTubeやnoteのサムネイル画像の専門家です。
+ユーザーが入力した「記事のタイトルやキャッチコピー」から、クリック率が高くなるような情景描写（被写体、背景、雰囲気など）を日本語で1つ作成してください。
+【人気の出るサムネの極意】
+・被写体を大きく、わかりやすくクローズアップで配置する。
+・コントラストを高くし、パッと見で目を引くライティング（逆光、ネオン、美しい自然光など）を意識する。
+・人物が登場する場合は必ず日本人とし、感情（驚き、笑顔、真剣など）を強調する。
+出力はプロンプトの文章（150文字以内）のみとし、挨拶や説明は一切含めないでください。`;
                 
                 const payload = {
                     contents: [{ parts: [{ text: `タイトル・キャッチコピー: ${idea}` }] }],
@@ -474,6 +500,67 @@
             }
         });
 
+        // MJプロンプトのコピー機能
+        document.getElementById('copy-mj-btn').addEventListener('click', () => {
+            const output = document.getElementById('mj-prompt-output');
+            output.select();
+            document.execCommand('copy');
+            
+            const btn = document.getElementById('copy-mj-btn');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> 完了';
+            btn.classList.replace('text-indigo-700', 'text-green-700');
+            btn.classList.replace('border-indigo-200', 'border-green-200');
+            btn.classList.replace('bg-indigo-50', 'bg-green-50');
+            btn.classList.replace('hover:bg-indigo-100', 'hover:bg-green-100');
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.classList.replace('text-green-700', 'text-indigo-700');
+                btn.classList.replace('border-green-200', 'border-indigo-200');
+                btn.classList.replace('bg-green-50', 'bg-indigo-50');
+                btn.classList.replace('hover:bg-green-100', 'hover:bg-indigo-100');
+                lucide.createIcons();
+            }, 2000);
+        });
+
+        // MJプロンプトを裏側で生成する関数
+        async function generateMidjourneyPrompt(subject, ratio, style, color) {
+            const textEndpoint = isCanvas 
+                ? `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`
+                : `${WORKER_URL}/v1beta/models/gemini-1.5-flash-latest:generateContent`;
+            
+            let ar = ratio;
+            if (ratio === '1.91:1') ar = '191:100';
+
+            const systemPrompt = `あなたはMidjourney V8のプロンプトエンジニアです。
+ユーザーが指定した日本語の描画内容、スタイル、色から、Midjourney V8用の最高品質の英語プロンプトを生成してください。
+サムネイルとして目を引くよう、構図(composition)、ライティング(cinematic lighting, studio light等)、品質(8k, highly detailed, masterpiece)のキーワードを効果的に補ってください。
+出力は英語のプロンプトテキストのみとし、末尾に必ずアスペクト比パラメータ(--ar ${ar})とバージョンパラメータ(--v 8.0)を付けてください。改行や説明、マークダウン記号は含めないでください。`;
+
+            const promptText = `描画内容: ${subject}\nスタイル: ${style}\nカラー: ${color}`;
+
+            try {
+                const response = await fetch(textEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: promptText }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+                const data = await response.json();
+                let mjText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if(mjText) {
+                    return mjText.replace(/```/g, '').replace(/\n/g, ' ').trim();
+                }
+            } catch(e) {
+                console.error("MJ prompt generation error:", e);
+            }
+            return "Failed to generate Midjourney prompt.";
+        }
+
         async function generate() {
             const subject = promptArea.value;
             const ratio = document.getElementById('ratio').value;
@@ -487,6 +574,9 @@
             if (!subject) return;
 
             showLoading();
+
+            // 画像生成と同時に、裏側でMidjourneyプロンプトの生成を並行して開始する（待機時間をゼロにする工夫）
+            const mjPromise = generateMidjourneyPrompt(subject, ratio, style, color);
 
             let promptText = `以下の条件で、高品質なサムネイル用の画像を生成してください。\n`;
             promptText += `- 描画内容: ${subject}\n`;
@@ -557,6 +647,13 @@
 
                 if (responseData) {
                     showSuccess(responseData);
+                    
+                    // 画像の表示が終わったら、裏側で作っていたMJプロンプトを取り出して表示
+                    const mjText = await mjPromise;
+                    if (mjText && mjText !== "Failed to generate Midjourney prompt.") {
+                        document.getElementById('mj-prompt-output').value = mjText;
+                        document.getElementById('mj-prompt-container').classList.remove('hidden');
+                    }
                 }
 
             } catch (error) {
@@ -570,6 +667,7 @@
             generateBtn.classList.add('opacity-70', 'cursor-not-allowed');
             placeholderState.classList.add('hidden');
             resultImage.classList.add('hidden');
+            document.getElementById('mj-prompt-container').classList.add('hidden');
             errorState.classList.add('hidden');
             downloadBtn.classList.add('hidden');
             loadingState.classList.remove('hidden');
